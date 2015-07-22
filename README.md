@@ -33,4 +33,9 @@ The email is then filtered and send to the MX checker and clearbit for final con
 
 ####TO RUN
 
-./run [firstname] [lastname] {url1}...{urln} {keywords...}
+echo [firstname] [lastname] {url1}...{urln} {keywords...} | python run.py
+
+the script reads from the stdin
+
+Make sure to export your linkedin username as LINKEDIN_USERNAME and password as LINKEDIN_PASSWORD
+as environmental variables.
