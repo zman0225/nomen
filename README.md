@@ -16,7 +16,7 @@ Last Name
 Personal Domains
 
 
-Keywords: non url-based keywords 
+Keywords: non url-based keywords
 
 ####Process
 
@@ -43,5 +43,8 @@ echo [firstname] [lastname] {url1}...{urln} {keywords...} | python run.py
 
 the script reads from the stdin
 
-Make sure to export your linkedin username as LINKEDIN_USERNAME and password as LINKEDIN_PASSWORD
+Make sure to export your linkedin
+    username as LINKEDIN_USERNAME,
+    password as LINKEDIN_PASSWORD, and
+    clearbit private key as CLEARBIT_KEY
 as environmental variables.
