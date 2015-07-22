@@ -4,10 +4,14 @@ import dns.resolver
 import smtplib
 import logging
 import re
+import json
 import os
 from linkedin_parser import LinkedInParser
 from copy import deepcopy
 import fileinput
+import time
+import clearbit
+
 
 logger = logging.getLogger('Nomen')
 logger.setLevel(logging.DEBUG)
@@ -22,7 +26,7 @@ logger.addHandler(console)
 
 GOOGLE_URL_PREFIX = "https://www.google.com/search?q={}"
 LINKEDIN_URL_ROOT = "https://www.linkedin.com/pub/dir/{}/{}"
-
+CLEARBIT_API_ROOT = "https://person.clearbit.com/v1/people/email/{}"
 EMAIL_ADDR = ["info@gmail.com", "contact@gmail.com", "contact@yahoo.com", "info@yahoo.com",
                       "support@google.com"]
 
@@ -32,7 +36,7 @@ regex = re.compile(("([a-z0-9!#$%&'*+\/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+\/=?^_`"
 
 LINKEDIN_USERNAME = os.environ.get('LINKEDIN_USERNAME')
 LINKEDIN_PASSWORD = os.environ.get('LINKEDIN_PASSWORD')
-CLEARBIT_KEY = os.environ.get('CLEARBIT_KEY')
+clearbit.key = os.environ.get('CLEARBIT_KEY')
 
 linkedin_parser = LinkedInParser(LINKEDIN_USERNAME,LINKEDIN_PASSWORD)
 
@@ -103,6 +107,7 @@ def get_brute_force_email(name,urls):
     usernames.append(a.format(firstname,lastname))
     usernames.append(b.format(firstname[0],lastname))
     usernames.append(b.format(firstname,lastname[0]))
+    usernames.append(b.format(lastname[0],firstname))
     usernames.append(b.format(firstname,lastname))
     usernames.append(firstname)
 
@@ -140,15 +145,12 @@ def _filter_emails(emails):
     return ret
 
 # Step one, generate all possible email leads
-def query_name(name, urls=[], keywords=None):
+def query_name_for_email_leads(name, urls=[], keywords=None):
     logger.debug("scraping the web for potential email addresses")
     emails = scrape_email(name, urls, keywords)
     emails = _filter_emails(emails)
     logger.debug(emails)
-    logger.debug("validating email addresses")
-    for email in emails:
-        if verify_email(email):
-            logger.debug('{} is good'.format(email))
+    return emails
 
 # Step two, check for email validity
 # RDNS checks for lookup domain name
@@ -156,7 +158,7 @@ def _get_mx_hosts(host):
     ret = dns.resolver.query(host,'MX')
     return [r.exchange.to_text() for r in ret]
 
-def verify_email(email):
+def mx_check(email):
     hosts = _get_mx_hosts(email.split('@')[1])
     for host in hosts:
         host = host[:-1] if host[-1]=='.' else host
@@ -199,10 +201,55 @@ def verify_email(email):
                     continue
     return False
 
+def levenshtein(s1, s2):
+    #https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#Python
+    if len(s1) < len(s2):
+        return levenshtein(s2, s1)
+
+    # len(s1) >= len(s2)
+    if len(s2) == 0:
+        return len(s1)
+
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1 # j+1 instead of j since previous_row and current_row are one character longer
+            deletions = current_row[j] + 1       # than s2
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+
+    return previous_row[-1]
+
+def validate_emails(name,emails):
+    logger.debug("validating email addresses")
+    mx_passed = []
+    for email in emails:
+        if mx_check(email):
+            mx_passed.append(email)
+            logger.debug('{} is good'.format(email))
+
+    ret_dict = {}
+    for email in mx_passed:
+        time.sleep(2)
+
+        person = clearbit.Person.find(email=email, stream=True)
+        if person != None:
+            fullName = person['name']['fullName']
+            score = levenshtein(fullName,name)
+            ret_dict[email] = score
+        else:
+            continue
+
+    return ret_dict
+
 if __name__ == '__main__':
     for input_param in fileinput.input():
         param_list = input_param.split(' ')
         name = ' '.join(param_list[:2])
         urls = set([param for param in param_list if 'http' in param])
         keywords = ' '.join(set(param_list)-urls)
-        query_name(name,urls,keywords)
+        emails = query_name_for_email_leads(name,urls,keywords)
+        email_dict = validate_emails(name,emails)
+        print email_dict

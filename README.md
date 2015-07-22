@@ -12,14 +12,11 @@ Last Name
 
 ####Optional Fields:
 
-Middle name
+
+Personal Domains
 
 
-Personal Domain
-
-
-linkedin_url
-
+Keywords: non url-based keywords 
 
 ####Process
 
@@ -30,6 +27,15 @@ With brute-force email generation, the first and last names are used in a string
 to generate email addresses from given URLs
 
 The email is then filtered and send to the MX checker and clearbit for final confirmation
+
+
+Filtering out candidates, in the case where multiple emails are valid, this script will score the
+results by fullname comparison (levenshtein distance) between the input name and the reverse email
+search provided by Clearbit.
+
+The result should be a dictionary with email as the key and its edit distance as the value. Lower is
+better
+
 
 ####TO RUN
 
