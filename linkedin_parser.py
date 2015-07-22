@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 cookie_filename = ".parser.cookies.txt"
 
 class LinkedInParser(object):
-
+    #https://gist.github.com/msrivastav13/19ecb7c191d3d69389b3
     def __init__(self, login, password):
         """ Start up... """
         self.login = login

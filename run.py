@@ -11,17 +11,14 @@ from copy import deepcopy
 import fileinput
 import time
 import clearbit
-
+from multiprocessing import Pool
 
 logger = logging.getLogger('Nomen')
 logger.setLevel(logging.DEBUG)
-
 console = logging.StreamHandler()
 console.setLevel(logging.DEBUG)
-
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 console.setFormatter(formatter)
-
 logger.addHandler(console)
 
 GOOGLE_URL_PREFIX = "https://www.google.com/search?q={}"
@@ -69,12 +66,12 @@ def scrape_linkedin(name):
 
     return emails
 
-def scrape_google(name,keywords="ORNL"):
+def scrape_google(name,keywords=None):
     emails = []
 
     google_query = name.replace(' ',"+")
 
-    if keywords:
+    if keywords and keywords != '':
         new_keywords = keywords.replace(' ','+')
         google_query += '+'+new_keywords
 
@@ -137,7 +134,7 @@ def scrape_email(name, urls=[], keywords=None):
 def _filter_emails(emails):
     ret = set()
     for email in emails:
-        if '.png' in email:
+        if '.png' in email or '.jpg' in email or '.jpeg' in email:
             continue
         if ' ' in email:
             continue
@@ -161,6 +158,7 @@ def _get_mx_hosts(host):
 def mx_check(email):
     hosts = _get_mx_hosts(email.split('@')[1])
     for host in hosts:
+        time.sleep(1)
         host = host[:-1] if host[-1]=='.' else host
 
         # try each host
@@ -236,7 +234,7 @@ def validate_emails(name,emails):
 
         person = clearbit.Person.find(email=email, stream=True)
         if person != None:
-            fullName = person['name']['fullName']
+            fullName = person['name']['fullName'].strip().lower()
             score = levenshtein(fullName,name)
             ret_dict[email] = score
         else:
@@ -244,12 +242,20 @@ def validate_emails(name,emails):
 
     return ret_dict
 
+def process_func(payload):
+    name,urls,keywords = payload
+    emails = query_name_for_email_leads(name,urls,keywords)
+    email_dict = validate_emails(name,emails)
+    return email_dict
+
 if __name__ == '__main__':
+    p = Pool(5)
+    input_params = []
     for input_param in fileinput.input():
         param_list = input_param.split(' ')
         name = ' '.join(param_list[:2])
         urls = set([param for param in param_list if 'http' in param])
         keywords = ' '.join(set(param_list)-urls)
-        emails = query_name_for_email_leads(name,urls,keywords)
-        email_dict = validate_emails(name,emails)
-        print email_dict
+        input_params.append((name,urls,keywords))
+    ret = p.map(process_func,input_params)
+    print "resulting dict", ret
