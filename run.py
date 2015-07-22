@@ -119,8 +119,8 @@ def get_brute_force_email(name,urls):
 
 def scrape_email(name, urls=[], keywords=None):
     emails = []
-    # emails.extend(scrape_linkedin(name))
-    # emails.extend(scrape_google(name, keywords))
+    emails.extend(scrape_linkedin(name))
+    emails.extend(scrape_google(name, keywords))
     emails.extend(get_brute_force_email(name,urls))
 
     for url in urls:
@@ -148,7 +148,7 @@ def query_name(name, urls=[], keywords=None):
     logger.debug("validating email addresses")
     for email in emails:
         if verify_email(email):
-            logger.debug('{} is good'.format(email)) 
+            logger.debug('{} is good'.format(email))
 
 # Step two, check for email validity
 # RDNS checks for lookup domain name
